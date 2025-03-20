@@ -1,0 +1,17 @@
+Dear Hiring Manager at {COMPANY_NAME},
+
+I am writing to express my interest in the {JOB_TITLE} position at {COMPANY_NAME} in {LOCATION}. I came across this opportunity on {SOURCE} and was immediately drawn to the prospect of contributing my skills and experience to your team.
+
+{PERSONALIZED_PARAGRAPH}
+
+Throughout my career, I have honed my abilities in problem-solving, collaboration, and delivering high-quality work. I am particularly excited about the opportunity to apply these skills at {COMPANY_NAME}, a company known for {COMPANY_TRAIT}.
+
+I am confident that my background and passion for {INDUSTRY_FIELD} make me a strong candidate for this position. I would welcome the opportunity to discuss how my experience aligns with your needs and how I can contribute to the continued success of {COMPANY_NAME}.
+
+Thank you for considering my application. I look forward to the possibility of speaking with you further about this exciting opportunity.
+
+Sincerely,
+{USER_FULL_NAME}
+{USER_EMAIL}
+{USER_PHONE}
+{USER_LINKEDIN} 
