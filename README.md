@@ -15,7 +15,7 @@ A comprehensive job search and application tool with AI-powered cover letter gen
 
 1. Clone the repository:
 ```
-git clone https://github.com/yourusername/Job-Scraper-Applicator.git
+git clone https://github.com/0Susie0/Job4U.git
 cd Job-Scraper-Applicator
 ```
 
