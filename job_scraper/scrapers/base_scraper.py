@@ -18,7 +18,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from ..utils import Utils
-from ..constants import Constants
+from ..config import Constants
 from ..utils import validate_url
 
 logger = logging.getLogger(__name__)

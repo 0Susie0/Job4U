@@ -9,7 +9,7 @@ import json
 import logging
 from pathlib import Path
 
-from job_scraper.constants import Constants
+from .constants import Constants
 
 class ConfigManager:
     """Class to manage configuration settings for the application."""

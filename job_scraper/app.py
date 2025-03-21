@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Any
 from .config.constants import Constants
 from .config.config_manager import ConfigManager
 from .data.database import DatabaseManager
-from .scraper import ScraperManager
+from .scrapers.scraper_manager import ScraperManager
 from .core.resume_parser import ResumeParser
 from .core.job_matcher import JobMatcher
 from .services.ai_letter_generator import AILetterGenerator

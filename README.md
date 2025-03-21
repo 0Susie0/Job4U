@@ -61,4 +61,4 @@ To use the AI cover letter generation feature, you need to:
 ## License
 
 MIT 
->>>>>>> 8d4a1f3 (Add local files.)
+

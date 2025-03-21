@@ -15,8 +15,8 @@ from typing import Dict, List, Any, Optional
 import openai
 from openai import OpenAI
 
-from .constants import Constants
-from .utils import validate_api_key
+from ..config.constants import Constants
+from ..utils.utils import validate_api_key
 
 class AILetterGenerator:
     """AI-powered cover letter generator that tailors content to match resume with job descriptions."""
