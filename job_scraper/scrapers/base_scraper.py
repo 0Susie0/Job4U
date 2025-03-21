@@ -17,9 +17,9 @@ from typing import List, Dict, Any, Optional
 import requests
 from bs4 import BeautifulSoup
 
-from ..utils import Utils
-from ..config import Constants
-from ..utils import validate_url
+from job_scraper.utils.utils import Utils
+from job_scraper.config.constants import Constants
+from job_scraper.utils.utils import validate_url
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +56,25 @@ class BaseScraper(ABC):
         self.chrome_options.add_argument('--no-sandbox')
         self.chrome_options.add_argument('--disable-dev-shm-usage')
         self.chrome_options.add_argument('--disable-gpu')
+        
+        # Configure custom timeout if provided
+        self.selenium_timeout = self.config.get('timeout', 30)
+        
         # Add user agent to avoid detection
         self.chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
         
     def get_driver(self):
         """Get a new WebDriver instance."""
-        return webdriver.Chrome(options=self.chrome_options)
+        chrome_driver_path = self.config.get('chrome_driver_path', None)
+        
+        if chrome_driver_path:
+            # Use specified Chrome driver path
+            service = Service(executable_path=chrome_driver_path)
+            return webdriver.Chrome(service=service, options=self.chrome_options)
+        else:
+            # Use ChromeDriverManager to automatically download and manage the driver
+            service = Service(ChromeDriverManager().install())
+            return webdriver.Chrome(service=service, options=self.chrome_options)
     
     def check_site_allowed(self, domain):
         """
@@ -73,14 +86,19 @@ class BaseScraper(ABC):
         Returns:
             bool: True if allowed, False otherwise
         """
-        if self.config.get_boolean('SCRAPING', 'respect_robots_txt', True):
+        respect_robots_txt = self.config.get('respect_robots_txt', True)
+        # Convert string 'true'/'false' to boolean if needed
+        if isinstance(respect_robots_txt, str):
+            respect_robots_txt = respect_robots_txt.lower() == 'true'
+            
+        if respect_robots_txt:
             return Utils.check_robots_txt(domain)
         return True
     
     def add_random_delay(self):
         """Add a random delay between requests to avoid getting blocked."""
-        min_delay = self.config.get_float('SCRAPING', 'min_delay', 2)
-        max_delay = self.config.get_float('SCRAPING', 'max_delay', 5)
+        min_delay = self.config.get('min_delay', 2)
+        max_delay = self.config.get('max_delay', 5)
         delay = random.uniform(min_delay, max_delay)
         time.sleep(delay)
     
@@ -157,11 +175,11 @@ class BaseScraper(ABC):
                             continue
                     
                 except Exception as e:
-                    logger.debug(f"Error parsing deadline date '{deadline_str}': {e}")
+                    self.logger.debug(f"Error parsing deadline date '{deadline_str}': {e}")
         
         # Default: assume job posting is valid for 30 days from today if no deadline is found
         default_deadline = (datetime.date.today() + datetime.timedelta(days=30)).strftime("%Y-%m-%d")
-        logger.debug(f"No deadline found, using default (30 days): {default_deadline}")
+        self.logger.debug(f"No deadline found, using default (30 days): {default_deadline}")
         return default_deadline
     
     def http_get(self, url: str, use_selenium: bool = False) -> Optional[str]:
@@ -248,7 +266,23 @@ class BaseScraper(ABC):
         Returns:
             List of search URLs
         """
-        pass
+        self.logger.warning(f"get_search_urls not implemented for {self.__class__.__name__}")
+        return []
+    
+    def search_jobs(self, keywords: str, location: str) -> List[Dict[str, Any]]:
+        """
+        Search for jobs with given keywords and location.
+        
+        Args:
+            keywords: Keywords to search for (space-separated string)
+            location: Location to search in
+            
+        Returns:
+            List of job dictionaries
+        """
+        self.logger.info(f"Searching for jobs with keywords: {keywords}, location: {location}")
+        keyword_list = keywords.split()
+        return self.search_jobs_concurrent(keyword_list, location, num_pages=1)
     
     def search_jobs_concurrent(self, keywords: List[str], location: str, num_pages: int = 1) -> List[Dict[str, Any]]:
         """
@@ -333,4 +367,5 @@ class BaseScraper(ABC):
         Returns:
             List of job URLs
         """
-        pass 
+        self.logger.warning(f"extract_job_urls not implemented for {self.__class__.__name__}")
+        return [] 

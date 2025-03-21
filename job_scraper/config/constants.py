@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Constants for the Job Scraper and Applicator.
+Constants for the Job4U application.
 """
 
 import os
@@ -8,6 +8,9 @@ from pathlib import Path
 
 class Constants:
     """Constants used throughout the application."""
+    
+    # Application information
+    VERSION = "1.0.0"
     
     # Paths
     APP_DIR = os.path.join(os.path.expanduser("~"), ".job_scraper")
@@ -18,6 +21,15 @@ class Constants:
     # Output directories
     COVER_LETTERS_DIR = os.path.join(os.path.expanduser("~"), "Documents", "Cover Letters")
     APPLICATION_LOGS_DIR = os.path.join(APP_DIR, "applications")
+    
+    # Logging settings
+    LOGGING_SETTINGS = {
+        "LOG_LEVEL": "INFO",
+        "LOG_FORMAT": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        "LOG_FILE": "job_scraper.log",
+        "MAX_LOG_SIZE": 10 * 1024 * 1024,  # 10 MB
+        "BACKUP_COUNT": 5
+    }
     
     # Default configuration
     DEFAULT_CONFIG = {
@@ -176,7 +188,10 @@ Limit the cover letter to approximately 350-400 words.
             )
         """
     }
-
+    
+    # Add DB_SCHEMA here
+    DB_SCHEMA = DB_TABLES["jobs"]
+    
     # Common IT skills list
     IT_SKILLS = [
         "python", "java", "javascript", "c++", "c#", "ruby", "php", "swift", "kotlin", "scala",

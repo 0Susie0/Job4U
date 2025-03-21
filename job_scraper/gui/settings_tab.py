@@ -145,6 +145,43 @@ class SettingsTab(QWidget):
         search_group.setLayout(search_layout)
         main_layout.addWidget(search_group)
         
+        # Selenium settings
+        selenium_group = QGroupBox("Web Browser Settings")
+        selenium_layout = QGridLayout()
+        
+        # Headless mode
+        self.headless_checkbox = QCheckBox("Run in headless mode (no visible browser)")
+        selenium_layout.addWidget(self.headless_checkbox, 0, 0, 1, 2)
+        
+        # Browser selection
+        selenium_layout.addWidget(QLabel("Browser:"), 1, 0)
+        self.browser_combo = QComboBox()
+        self.browser_combo.addItems(["Chrome"])  # Currently only Chrome is supported
+        selenium_layout.addWidget(self.browser_combo, 1, 1)
+        
+        # Timeout
+        selenium_layout.addWidget(QLabel("Timeout (seconds):"), 2, 0)
+        self.timeout_spinbox = QSpinBox()
+        self.timeout_spinbox.setRange(10, 120)
+        self.timeout_spinbox.setValue(30)
+        selenium_layout.addWidget(self.timeout_spinbox, 2, 1)
+        
+        # ChromeDriver path
+        selenium_layout.addWidget(QLabel("Chrome Driver Path:"), 3, 0)
+        driver_path_layout = QHBoxLayout()
+        self.driver_path_input = QLineEdit()
+        self.driver_path_input.setPlaceholderText("Leave empty to use ChromeDriverManager (recommended)")
+        driver_path_layout.addWidget(self.driver_path_input)
+        
+        self.browse_driver_button = QPushButton("Browse")
+        self.browse_driver_button.clicked.connect(self.browse_driver_path)
+        driver_path_layout.addWidget(self.browse_driver_button)
+        
+        selenium_layout.addLayout(driver_path_layout, 3, 1)
+        
+        selenium_group.setLayout(selenium_layout)
+        main_layout.addWidget(selenium_group)
+        
         # Buttons
         button_layout = QHBoxLayout()
         
@@ -178,34 +215,29 @@ class SettingsTab(QWidget):
             search_config = self.app.config_manager.get_scraper_settings()
             self.pages_spinbox.setValue(search_config.get('pages_per_site', 3))
             
-            # Default job sites
-            default_sites = search_config.get('default_sites', ['seek', 'indeed', 'linkedin'])
-            self.seek_checkbox.setChecked('seek' in default_sites)
-            self.indeed_checkbox.setChecked('indeed' in default_sites)
-            self.linkedin_checkbox.setChecked('linkedin' in default_sites)
+            # Check job sites
+            job_sites = search_config.get('job_sites', [])
+            self.seek_checkbox.setChecked('seek' in job_sites)
+            self.indeed_checkbox.setChecked('indeed' in job_sites)
+            self.linkedin_checkbox.setChecked('linkedin' in job_sites)
             
             # Job management settings
             job_mgmt = self.app.config_manager.get_application_settings()
             self.expire_days_spinbox.setValue(job_mgmt.get('expire_days', 30))
             self.auto_check_expiry.setChecked(job_mgmt.get('auto_check_expiry', True))
             
-            # AI settings
-            ai_config = self.app.config_manager.get_ai_settings()
+            # API settings
+            api_settings = self.app.config_manager.get_ai_settings()
+            self.api_key_status.setText(
+                "Set" if api_settings.get('openai_api_key') else "Not set"
+            )
+            self.model_combo.setCurrentText(api_settings.get('model', 'gpt-3.5-turbo'))
             
-            # Check if API key is set
-            api_key = self.app.config_manager.get_openai_api_key()
-            if api_key:
-                self.api_key_status.setText("API key is set")
-                self.api_key_status.setStyleSheet("color: green")
-            else:
-                self.api_key_status.setText("API key is not set")
-                self.api_key_status.setStyleSheet("color: red")
-                
-            # Model
-            model = ai_config.get('model', 'gpt-3.5-turbo')
-            index = self.model_combo.findText(model)
-            if index >= 0:
-                self.model_combo.setCurrentIndex(index)
+            # Selenium settings
+            selenium_settings = self.app.config_manager.get_selenium_settings()
+            self.headless_checkbox.setChecked(selenium_settings.get('headless', True))
+            self.timeout_spinbox.setValue(selenium_settings.get('timeout', 30))
+            self.driver_path_input.setText(selenium_settings.get('chrome_driver_path', ''))
             
         except Exception as e:
             self.logger.error(f"Error loading settings: {str(e)}", exc_info=True)
@@ -244,7 +276,7 @@ class SettingsTab(QWidget):
                 
             search_config = {
                 'pages_per_site': self.pages_spinbox.value(),
-                'default_sites': default_sites
+                'job_sites': default_sites
             }
             self.app.config_manager.set_scraper_settings(search_config)
             
@@ -260,6 +292,14 @@ class SettingsTab(QWidget):
                 'model': self.model_combo.currentText()
             }
             self.app.config_manager.set_ai_settings(ai_config)
+            
+            # Selenium settings
+            selenium_config = {
+                'headless': self.headless_checkbox.isChecked(),
+                'timeout': self.timeout_spinbox.value(),
+                'chrome_driver_path': self.driver_path_input.text().strip()
+            }
+            self.app.config_manager.set_selenium_settings(selenium_config)
             
             QMessageBox.information(
                 self,
@@ -346,4 +386,16 @@ class SettingsTab(QWidget):
                         self,
                         "Error",
                         f"Failed to save API key: {str(e)}"
-                    ) 
+                    )
+                    
+    def browse_driver_path(self):
+        """Open file dialog to select ChromeDriver path."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select ChromeDriver",
+            "",
+            "ChromeDriver Files (*.exe);;All Files (*)"
+        )
+        
+        if file_path:
+            self.driver_path_input.setText(file_path) 

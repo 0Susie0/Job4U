@@ -1,5 +1,5 @@
 """
-GUI package for job scraper application.
+GUI package for Job4U application.
 This package contains modules for the graphical user interface.
 """
 

@@ -5,35 +5,57 @@ Resume parser module for extracting information from resumes.
 import logging
 import subprocess
 import sys
+import re
 import docx2txt
 from PyPDF2 import PdfReader
-import spacy
 
-from .constants import Constants
+from ..config.constants import Constants
 
 logger = logging.getLogger(__name__)
+
+# Flag to track if spacy is available
+SPACY_AVAILABLE = False
+
+try:
+    # pylint: disable=import-error
+    # type: ignore
+    import spacy
+    SPACY_AVAILABLE = True
+    logger.info("spaCy is available for advanced resume parsing")
+except ImportError:
+    logger.warning("spaCy is not available. Using basic resume parsing instead. Install with: pip install spacy")
 
 class ResumeParser:
     """
     Class for parsing resume files and extracting relevant information.
     """
     
-    def __init__(self):
+    def __init__(self, settings=None, logger=None):
         """
         Initialize the resume parser with NLP models.
+        
+        Args:
+            settings (dict): Resume settings
+            logger (logging.Logger): Logger instance
         """
-        try:
-            self.nlp = spacy.load("en_core_web_md")
-            logger.debug("Loaded spaCy model")
-        except OSError:
-            logger.info("Downloading spaCy model...")
+        self.logger = logger or logging.getLogger(__name__)
+        self.settings = settings or {}
+        self.nlp = None
+        
+        # Try to load spaCy model if available
+        if SPACY_AVAILABLE:
             try:
-                subprocess.call([sys.executable, "-m", "spacy", "download", "en_core_web_md"])
                 self.nlp = spacy.load("en_core_web_md")
-                logger.info("spaCy model downloaded and loaded")
-            except Exception as e:
-                logger.error(f"Error downloading spaCy model: {e}")
-                raise
+                self.logger.debug("Loaded spaCy model")
+            except OSError:
+                self.logger.info("Downloading spaCy model...")
+                try:
+                    subprocess.call([sys.executable, "-m", "spacy", "download", "en_core_web_md"])
+                    self.nlp = spacy.load("en_core_web_md")
+                    self.logger.info("spaCy model downloaded and loaded")
+                except Exception as e:
+                    self.logger.error(f"Error downloading spaCy model: {e}")
+                    self.nlp = None
     
     def extract_text_from_pdf(self, pdf_path):
         """
@@ -45,7 +67,7 @@ class ResumeParser:
         Returns:
             str: Extracted text
         """
-        logger.debug(f"Extracting text from PDF: {pdf_path}")
+        self.logger.debug(f"Extracting text from PDF: {pdf_path}")
         try:
             text = ""
             with open(pdf_path, 'rb') as file:
@@ -54,7 +76,7 @@ class ResumeParser:
                     text += page.extract_text()
             return text
         except Exception as e:
-            logger.error(f"Error extracting text from PDF: {e}")
+            self.logger.error(f"Error extracting text from PDF: {e}")
             raise
     
     def extract_text_from_docx(self, docx_path):
@@ -67,12 +89,12 @@ class ResumeParser:
         Returns:
             str: Extracted text
         """
-        logger.debug(f"Extracting text from DOCX: {docx_path}")
+        self.logger.debug(f"Extracting text from DOCX: {docx_path}")
         try:
             text = docx2txt.process(docx_path)
             return text
         except Exception as e:
-            logger.error(f"Error extracting text from DOCX: {e}")
+            self.logger.error(f"Error extracting text from DOCX: {e}")
             raise
     
     def extract_text(self, file_path):
@@ -105,18 +127,31 @@ class ResumeParser:
         Returns:
             list: List of skills
         """
-        logger.debug("Extracting skills from resume text")
+        self.logger.debug("Extracting skills from resume text")
         # Use the list of skills from Constants
         it_skills = Constants.IT_SKILLS
         
         # Extract skills from text
         skills = []
         text_lower = text.lower()
-        doc = self.nlp(text_lower)
         
-        for skill in it_skills:
-            if skill in text_lower:
-                skills.append(skill)
+        # If spaCy is available, use it for better skill extraction
+        if SPACY_AVAILABLE and self.nlp:
+            doc = self.nlp(text_lower)
+            
+            for skill in it_skills:
+                if skill.lower() in text_lower:
+                    skills.append(skill)
+                    
+            # Use NER to find additional skills
+            for ent in doc.ents:
+                if ent.label_ == "SKILL":
+                    skills.append(ent.text)
+        else:
+            # Basic skill extraction without spaCy
+            for skill in it_skills:
+                if skill.lower() in text_lower:
+                    skills.append(skill)
         
         return skills
     
@@ -130,7 +165,7 @@ class ResumeParser:
         Returns:
             list: List of work experience entries
         """
-        logger.debug("Extracting work experience from resume text")
+        self.logger.debug("Extracting work experience from resume text")
         # Use the section headers from Constants
         experience_headers = Constants.EXPERIENCE_HEADERS
         
@@ -181,7 +216,7 @@ class ResumeParser:
         Returns:
             list: List of education entries
         """
-        logger.debug("Extracting education from resume text")
+        self.logger.debug("Extracting education from resume text")
         # Use the section headers from Constants
         education_headers = Constants.EDUCATION_HEADERS
         
@@ -230,7 +265,7 @@ class ResumeParser:
         Returns:
             dict: Parsed resume information
         """
-        logger.info(f"Parsing resume: {file_path}")
+        self.logger.info(f"Parsing resume: {file_path}")
         try:
             # Extract text from file
             text = self.extract_text(file_path)
@@ -248,9 +283,9 @@ class ResumeParser:
                 'full_text': text
             }
             
-            logger.info(f"Resume parsed successfully with {len(skills)} skills, {len(work_experience)} work experiences, and {len(education)} education entries.")
+            self.logger.info(f"Resume parsed successfully with {len(skills)} skills, {len(work_experience)} work experiences, and {len(education)} education entries.")
             return resume_data
         
         except Exception as e:
-            logger.error(f"Error parsing resume: {e}", exc_info=True)
+            self.logger.error(f"Error parsing resume: {e}", exc_info=True)
             return None 

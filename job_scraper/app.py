@@ -17,12 +17,12 @@ from .scrapers.scraper_manager import ScraperManager
 from .core.resume_parser import ResumeParser
 from .core.job_matcher import JobMatcher
 from .services.ai_letter_generator import AILetterGenerator
-from .services.application_manager import ApplicationManager
+from .services.application_manager import JobApplicationManager
 from .utils.utils import validate_config, ValidationError
 
 
-class JobScraperApp:
-    """Main application class for Job Scraper and Applicator."""
+class Job4UApp:
+    """Main application class for Job4U."""
     
     def __init__(self):
         """Initialize the application components."""
@@ -33,7 +33,7 @@ class JobScraperApp:
         """Set up logging with rotation."""
         try:
             # Create logs directory if it doesn't exist
-            os.makedirs(Constants.LOG_DIR, exist_ok=True)
+            os.makedirs(Constants.LOGS_DIR, exist_ok=True)
             
             # Configure root logger
             self.logger = logging.getLogger()
@@ -45,7 +45,7 @@ class JobScraperApp:
             
             # Set up file handler with rotation
             log_file = os.path.join(
-                Constants.LOG_DIR,
+                Constants.LOGS_DIR,
                 Constants.LOGGING_SETTINGS["LOG_FILE"]
             )
             file_handler = RotatingFileHandler(
@@ -91,7 +91,7 @@ class JobScraperApp:
             
             # Initialize scraper manager
             self.scraper_manager = ScraperManager(
-                self.config_manager.get_job_scraper_settings(),
+                self.config_manager.get_scraper_settings(),
                 self.logger
             )
             
@@ -114,9 +114,10 @@ class JobScraperApp:
             )
             
             # Initialize application manager
-            self.application_manager = ApplicationManager(
-                self.config_manager,
-                self.logger
+            self.application_manager = JobApplicationManager(
+                self.config_manager.get_resume_settings().get('default_resume_path', ''),
+                self.config_manager.get_resume_settings().get('default_cover_letter_template', ''),
+                self.config_manager
             )
             
             self.logger.info("All components initialized successfully")
@@ -212,4 +213,33 @@ class JobScraperApp:
             return count
         except Exception as e:
             self.logger.error(f"Error deleting expired jobs: {str(e)}")
-            return 0 
+            return 0
+            
+    def run(self):
+        """Run the application with GUI interface."""
+        try:
+            from PyQt5.QtWidgets import QApplication
+            from .gui.main_window import MainWindow
+            
+            self.logger.info("Starting GUI application")
+            
+            # Initialize Qt application
+            qt_app = QApplication(sys.argv)
+            
+            # Create and show main window
+            main_window = MainWindow(self)
+            main_window.show()
+            
+            # Execute application event loop
+            return_code = qt_app.exec_()
+            
+            self.logger.info("GUI application closed")
+            return return_code
+            
+        except ImportError as e:
+            self.logger.error(f"GUI dependencies not installed: {str(e)}")
+            print("Error: PyQt5 is required for the GUI. Please install it with 'pip install PyQt5'")
+            sys.exit(1)
+        except Exception as e:
+            self.logger.error(f"Error running GUI application: {str(e)}")
+            raise 

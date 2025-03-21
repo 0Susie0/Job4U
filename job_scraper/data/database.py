@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
 
-from ..config.constants import Constants
+from job_scraper.config.constants import Constants
 
 class ConnectionPool:
     """Connection pool for SQLite connections."""
@@ -139,16 +139,16 @@ class DatabaseManager:
             cursor.execute(Constants.DB_SCHEMA)
             
             # Create indexes for common queries
-            self._create_index(cursor, 'jobs', 'status', 'idx_jobs_status')
+            self._create_index(cursor, 'jobs', 'expired', 'idx_jobs_status')
             self._create_index(cursor, 'jobs', 'date_scraped', 'idx_jobs_date_scraped')
             self._create_index(cursor, 'jobs', 'deadline', 'idx_jobs_deadline')
-            self._create_index(cursor, 'jobs', 'match_percentage', 'idx_jobs_match')
+            self._create_index(cursor, 'jobs', 'match_score', 'idx_jobs_match')
             self._create_index(cursor, 'jobs', 'applied', 'idx_jobs_applied')
             self._create_index(cursor, 'jobs', 'source', 'idx_jobs_source')
             
             # Create compound indexes for common query patterns
-            self._create_index(cursor, 'jobs', 'status, match_percentage', 'idx_jobs_status_match')
-            self._create_index(cursor, 'jobs', 'status, date_scraped', 'idx_jobs_status_date')
+            self._create_index(cursor, 'jobs', 'expired, match_score', 'idx_jobs_status_match')
+            self._create_index(cursor, 'jobs', 'expired, date_scraped', 'idx_jobs_status_date')
             
             conn.commit()
             self.logger.info("Database initialized successfully")
@@ -377,13 +377,13 @@ class DatabaseManager:
             params = []
             
             if status:
-                query += " AND status = ?"
-                count_query += " AND status = ?"
+                query += " AND expired = ?"
+                count_query += " AND expired = ?"
                 params.append(status)
                 
             if min_match is not None:
-                query += " AND match_percentage >= ?"
-                count_query += " AND match_percentage >= ?"
+                query += " AND match_score >= ?"
+                count_query += " AND match_score >= ?"
                 params.append(min_match)
                 
             if source:
@@ -430,7 +430,7 @@ class DatabaseManager:
         try:
             cursor = conn.cursor()
             cursor.execute(
-                "UPDATE jobs SET status = ? WHERE id = ?",
+                "UPDATE jobs SET expired = ? WHERE id = ?",
                 (status, job_id)
             )
             conn.commit()
@@ -459,10 +459,10 @@ class DatabaseManager:
             cursor.execute(
                 """
                 UPDATE jobs 
-                SET applied = 1, status = ?, application_date = ?
+                SET applied = 1, expired = ?, application_date = ?
                 WHERE id = ?
                 """,
-                (Constants.JOB_STATUS["APPLIED"], datetime.now().isoformat(), job_id)
+                (Constants.JOB_STATUS["EXPIRED"], datetime.now().isoformat(), job_id)
             )
             conn.commit()
             return cursor.rowcount > 0
@@ -490,12 +490,12 @@ class DatabaseManager:
                 """
                 SELECT
                     COUNT(*) as total,
-                    SUM(CASE WHEN match_percentage >= ? THEN 1 ELSE 0 END) as excellent,
-                    SUM(CASE WHEN match_percentage >= ? AND match_percentage < ? THEN 1 ELSE 0 END) as good,
-                    SUM(CASE WHEN match_percentage >= ? AND match_percentage < ? THEN 1 ELSE 0 END) as fair,
-                    SUM(CASE WHEN match_percentage < ? THEN 1 ELSE 0 END) as poor
+                    SUM(CASE WHEN match_score >= ? THEN 1 ELSE 0 END) as excellent,
+                    SUM(CASE WHEN match_score >= ? AND match_score < ? THEN 1 ELSE 0 END) as good,
+                    SUM(CASE WHEN match_score >= ? AND match_score < ? THEN 1 ELSE 0 END) as fair,
+                    SUM(CASE WHEN match_score < ? THEN 1 ELSE 0 END) as poor
                 FROM jobs
-                WHERE match_percentage IS NOT NULL
+                WHERE match_score IS NOT NULL
                 """,
                 (
                     Constants.MATCH_THRESHOLDS["EXCELLENT"],
@@ -510,13 +510,13 @@ class DatabaseManager:
             # Get counts by status
             cursor.execute(
                 """
-                SELECT status, COUNT(*) as count
+                SELECT expired, COUNT(*) as count
                 FROM jobs
-                GROUP BY status
+                GROUP BY expired
                 """
             )
             
-            status_counts = {row['status']: row['count'] for row in cursor.fetchall()}
+            status_counts = {row['expired']: row['count'] for row in cursor.fetchall()}
             result['status_counts'] = status_counts
             
             return result
@@ -543,8 +543,8 @@ class DatabaseManager:
             cursor.execute(
                 """
                 UPDATE jobs
-                SET status = ?
-                WHERE deadline < ? AND status = ?
+                SET expired = ?
+                WHERE deadline < ? AND expired = ?
                 """,
                 (Constants.JOB_STATUS["EXPIRED"], now, Constants.JOB_STATUS["ACTIVE"])
             )
@@ -582,7 +582,7 @@ class DatabaseManager:
                 """
                 SELECT * FROM jobs
                 WHERE deadline BETWEEN ? AND ?
-                AND status = ?
+                AND expired = ?
                 ORDER BY deadline ASC
                 """,
                 (now.isoformat(), future, Constants.JOB_STATUS["ACTIVE"])
@@ -616,7 +616,7 @@ class DatabaseManager:
             cursor.execute(
                 """
                 DELETE FROM jobs
-                WHERE status = ? AND date_scraped < ?
+                WHERE expired = ? AND date_scraped < ?
                 """,
                 (Constants.JOB_STATUS["EXPIRED"], cutoff_date)
             )
@@ -675,7 +675,7 @@ class DatabaseManager:
             
             for job_id, match_percentage in job_matches:
                 cursor.execute(
-                    "UPDATE jobs SET match_percentage = ? WHERE id = ?",
+                    "UPDATE jobs SET match_score = ? WHERE id = ?",
                     (match_percentage, job_id)
                 )
                 count += cursor.rowcount
@@ -713,7 +713,7 @@ class DatabaseManager:
                 """
                 SELECT * FROM jobs
                 WHERE title LIKE ? OR company LIKE ? OR description LIKE ?
-                ORDER BY match_percentage DESC, date_scraped DESC
+                ORDER BY match_score DESC, date_scraped DESC
                 LIMIT ?
                 """,
                 (search_term, search_term, search_term, limit)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Configuration manager for the job scraper application.
+Configuration manager for the Job4U application.
 Handles loading, saving, and managing user settings.
 """
 
@@ -14,14 +14,15 @@ from .constants import Constants
 class ConfigManager:
     """Class to manage configuration settings for the application."""
 
-    def __init__(self, config_file=None):
+    def __init__(self, logger=None, config_file=None):
         """Initialize the configuration manager.
         
         Args:
+            logger (logging.Logger, optional): Logger instance
             config_file (str, optional): Path to the configuration file.
                                        If not provided, uses the default path.
         """
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger or logging.getLogger(__name__)
         
         # Use the specified config file or the default from Constants
         self.config_file = config_file or Constants.CONFIG_FILE
@@ -152,10 +153,10 @@ class ConfigManager:
         }
     
     def get_scraper_settings(self):
-        """Get job scraper settings.
+        """Get job search settings.
         
         Returns:
-            dict: Job scraper settings
+            dict: Job search settings
         """
         return {
             'search_terms': self.get_config('search_terms', []),
@@ -174,4 +175,88 @@ class ConfigManager:
         return {
             'use_ai_cover_letter': self.get_config('use_ai_cover_letter', True),
             'auto_apply': self.get_config('auto_apply', False)
-        } 
+        }
+    
+    def get_ai_settings(self):
+        """Get AI-related settings.
+        
+        Returns:
+            dict: AI settings
+        """
+        return {
+            'openai_api_key': self.get_config('openai_api_key', ''),
+            'use_ai_cover_letter': self.get_config('use_ai_cover_letter', True)
+        }
+    
+    def get_selenium_settings(self):
+        """Get Selenium-related settings.
+        
+        Returns:
+            dict: Selenium settings
+        """
+        return {
+            'headless': self.get_config('headless', True),
+            'timeout': self.get_config('timeout', 30),
+            'browser': self.get_config('browser', 'chrome'),
+            'chrome_driver_path': self.get_config('chrome_driver_path', '')
+        }
+    
+    def set_user_info(self, user_info):
+        """Set user information.
+        
+        Args:
+            user_info (dict): User information dictionary
+        """
+        for key, value in user_info.items():
+            self.set_config(key, value)
+        self.save_config()
+    
+    def set_resume_settings(self, resume_settings):
+        """Set resume-related settings.
+        
+        Args:
+            resume_settings (dict): Resume settings dictionary
+        """
+        for key, value in resume_settings.items():
+            self.set_config(key, value)
+        self.save_config()
+        
+    def set_scraper_settings(self, scraper_settings):
+        """Set job search settings.
+        
+        Args:
+            scraper_settings (dict): Job search settings dictionary
+        """
+        for key, value in scraper_settings.items():
+            self.set_config(key, value)
+        self.save_config()
+        
+    def set_application_settings(self, application_settings):
+        """Set job application settings.
+        
+        Args:
+            application_settings (dict): Application settings dictionary
+        """
+        for key, value in application_settings.items():
+            self.set_config(key, value)
+        self.save_config()
+        
+    def set_ai_settings(self, ai_settings):
+        """Set AI-related settings.
+        
+        Args:
+            ai_settings (dict): AI settings dictionary
+        """
+        for key, value in ai_settings.items():
+            self.set_config(key, value)
+        self.save_config()
+        
+    def set_selenium_settings(self, selenium_settings):
+        """Set Selenium-related settings.
+        
+        Args:
+            selenium_settings (dict): Selenium settings dictionary
+        """
+        for key, value in selenium_settings.items():
+            self.set_config(key, value)
+        self.save_config() 

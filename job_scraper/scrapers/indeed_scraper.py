@@ -7,19 +7,111 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from typing import List, Dict, Any, Optional
 
-from .base_scraper import BaseScraper
-from ..utils import Utils
+from job_scraper.scrapers.base_scraper import BaseScraper
+from job_scraper.utils.utils import Utils
 
 logger = logging.getLogger(__name__)
 
 class IndeedScraper(BaseScraper):
     """Scraper for Indeed.com.au job listings."""
     
-    def __init__(self, config_manager, db_manager):
+    def __init__(self, config: Dict[str, Any], logger: Optional[logging.Logger] = None):
         """Initialize Indeed scraper."""
-        super().__init__(config_manager, db_manager)
+        super().__init__(config, logger)
         self.domain = "au.indeed.com"
+        self.user_agent = config.get('user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+    
+    def get_search_urls(self, keywords: List[str], location: str, num_pages: int = 1) -> List[str]:
+        """
+        Generate search URLs for Indeed.com.au.
+        
+        Args:
+            keywords: List of search terms
+            location: Job location
+            num_pages: Number of pages to search
+            
+        Returns:
+            List of search URLs
+        """
+        urls = []
+        for keyword in keywords:
+            for page in range(num_pages):
+                # Indeed uses 'start' parameter for pagination, with 10 jobs per page
+                start = page * 10
+                url = f"https://{self.domain}/jobs?q={keyword.replace(' ', '+')}&l={location.replace(' ', '+')}&start={start}"
+                urls.append(url)
+        
+        self.logger.info(f"Generated {len(urls)} search URLs for Indeed")
+        return urls
+        
+    def extract_job_urls(self, search_url: str) -> List[str]:
+        """
+        Extract job URLs from an Indeed search results page.
+        
+        Args:
+            search_url: URL of the search results page
+            
+        Returns:
+            List of job URLs
+        """
+        job_urls = []
+        
+        # Check if scraping is allowed
+        if not self.check_site_allowed(self.domain):
+            self.logger.warning(f"Scraping not allowed for {self.domain} according to robots.txt")
+            return job_urls
+            
+        # Indeed requires JavaScript, so we need to use Selenium
+        driver = None
+        try:
+            driver = self.get_driver()
+            self.logger.info(f"Navigating to {search_url}")
+            
+            # Add random delay to avoid getting blocked
+            self.add_random_delay()
+            
+            driver.get(search_url)
+            
+            # Get job container selector from configuration
+            job_container = self.config.get('indeed_job_container', 'job_seen_beacon')
+            title_selector = self.config.get('indeed_title', 'jcs-JobTitle')
+            
+            # Wait for job listings to load
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, job_container))
+            )
+            
+            # Get job cards
+            job_cards = driver.find_elements(By.CLASS_NAME, job_container)
+            
+            if not job_cards:
+                self.logger.warning(f"No job elements found on page {search_url}")
+                return job_urls
+                
+            for job_card in job_cards:
+                try:
+                    # Get the job title element which contains the link
+                    title_element = job_card.find_element(By.CLASS_NAME, title_selector)
+                    link_element = title_element.find_element(By.TAG_NAME, "a")
+                    
+                    if link_element and link_element.get_attribute("href"):
+                        job_url = link_element.get_attribute("href")
+                        job_urls.append(job_url)
+                except Exception as e:
+                    self.logger.error(f"Error extracting job URL: {str(e)}")
+                    
+            self.logger.info(f"Found {len(job_urls)} job URLs on {search_url}")
+            
+        except Exception as e:
+            self.logger.error(f"Error extracting job URLs from {search_url}: {str(e)}")
+            
+        finally:
+            if driver:
+                driver.quit()
+                
+        return job_urls
     
     def scrape(self, search_terms, location, num_pages=None):
         """
@@ -34,20 +126,20 @@ class IndeedScraper(BaseScraper):
             list: Job listings
         """
         if num_pages is None:
-            num_pages = self.config.get_int('SCRAPING', 'max_pages', 3)
+            num_pages = self.config.get('max_pages', 3)
         
         # Check if scraping is allowed
         if not self.check_site_allowed(self.domain):
-            logger.warning(f"Scraping not allowed for {self.domain} according to robots.txt")
+            self.logger.warning(f"Scraping not allowed for {self.domain} according to robots.txt")
             return self.job_listings
         
-        logger.info(f"Scraping Indeed.com.au for {search_terms} in {location}...")
+        self.logger.info(f"Scraping Indeed.com.au for {search_terms} in {location}...")
         
         # Get selectors from configuration
-        job_container = self.config.get('SELECTORS', 'indeed_job_container', 'job_seen_beacon')
-        title_selector = self.config.get('SELECTORS', 'indeed_title', 'jcs-JobTitle')
-        company_selector = self.config.get('SELECTORS', 'indeed_company', 'companyName')
-        location_selector = self.config.get('SELECTORS', 'indeed_location', 'companyLocation')
+        job_container = self.config.get('indeed_job_container', 'job_seen_beacon')
+        title_selector = self.config.get('indeed_title', 'jcs-JobTitle')
+        company_selector = self.config.get('indeed_company', 'companyName')
+        location_selector = self.config.get('indeed_location', 'companyLocation')
         
         jobs_before = len(self.job_listings)
         
@@ -64,14 +156,14 @@ class IndeedScraper(BaseScraper):
                     
                     try:
                         # Wait for job container to load
-                        WebDriverWait(driver, self.config.get_int('SELENIUM', 'timeout', 10)).until(
+                        WebDriverWait(driver, self.config.get('timeout', 10)).until(
                             EC.presence_of_element_located((By.CLASS_NAME, job_container))
                         )
                         
                         job_elements = driver.find_elements(By.CLASS_NAME, job_container)
                         
                         if not job_elements:
-                            logger.warning(f"No job elements found on page {page//10 + 1} for {search_term}. Selector might need updating.")
+                            self.logger.warning(f"No job elements found on page {page//10 + 1} for {search_term}. Selector might need updating.")
                             driver.quit()
                             continue
                         
@@ -104,82 +196,118 @@ class IndeedScraper(BaseScraper):
                                     'source': 'Indeed'
                                 }
                                 
-                                # Insert into database
-                                job_id = self.db.insert_job(job_data)
-                                if job_id:
-                                    job_data['id'] = job_id
-                                    self.job_listings.append(job_data)
+                                # Add job to results
+                                self.job_listings.append(job_data)
                                 
                             except Exception as e:
-                                logger.error(f"Error parsing job: {e}", exc_info=True)
+                                self.logger.error(f"Error parsing job: {e}", exc_info=True)
                     
                     except TimeoutException:
-                        logger.warning(f"Timeout waiting for Indeed jobs to load on page {page//10 + 1} for {search_term}")
+                        self.logger.warning(f"Timeout waiting for Indeed jobs to load on page {page//10 + 1} for {search_term}")
                     
                     finally:
                         driver.quit()
                 
                 except Exception as e:
-                    logger.error(f"Error scraping page {page//10 + 1} for {search_term}: {e}", exc_info=True)
+                    self.logger.error(f"Error scraping page {page//10 + 1} for {search_term}: {e}", exc_info=True)
                     if 'driver' in locals():
                         driver.quit()
         
         indeed_jobs_count = len(self.job_listings) - jobs_before
-        logger.info(f"Found {indeed_jobs_count} job listings on Indeed")
+        self.logger.info(f"Found {indeed_jobs_count} job listings on Indeed")
         return self.job_listings
     
-    def get_job_details(self, job, driver=None):
+    def get_job_details(self, job_url: str) -> Dict[str, Any]:
         """
-        Get detailed job description from Indeed.com.au.
+        Get detailed information about a specific job from Indeed.
         
         Args:
-            job (dict): Job data
-            driver (WebDriver): Optional existing WebDriver instance
+            job_url: URL of the job listing
             
         Returns:
-            str: Job description
+            Job details as a dictionary
         """
-        if job['source'] != 'Indeed':
-            logger.warning(f"Cannot get details for non-Indeed job: {job['title']}")
-            return None
-        
-        close_driver = False
-        if driver is None:
-            driver = self.get_driver()
-            close_driver = True
-        
         try:
-            logger.info(f"Getting job details for: {job['title']} at {job['company']}")
-            driver.get(job['link'])
+            self.logger.info(f"Getting job details for: {job_url}")
             
-            # Add random delay
-            self.add_random_delay()
-            
-            # Get description selector from config
-            description_selector = self.config.get('SELECTORS', 'indeed_description', 'jobDescriptionText')
+            # Get the job page
+            driver = self.get_driver()
             
             try:
-                # First try to get by ID
+                # Add random delay to avoid getting blocked
+                self.add_random_delay()
+                
+                driver.get(job_url)
+                
+                # Wait for the page to load
                 WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.ID, description_selector))
+                    EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
-                description_element = driver.find_element(By.ID, description_selector)
-                description = description_element.text.strip()
-            except (TimeoutException, NoSuchElementException):
+                
+                # Extract job details
+                title = ""
+                company = ""
+                location = ""
+                description = ""
+                
+                # Get job title
                 try:
-                    # Then try by class name
-                    description_element = driver.find_element(By.CLASS_NAME, description_selector)
+                    title_element = driver.find_element(By.CLASS_NAME, "jobsearch-JobInfoHeader-title")
+                    title = title_element.text.strip()
+                except NoSuchElementException:
+                    self.logger.warning(f"Could not find job title for {job_url}")
+                
+                # Get company name
+                try:
+                    company_element = driver.find_element(By.CLASS_NAME, "jobsearch-CompanyInfoContainer")
+                    company = company_element.text.strip()
+                except NoSuchElementException:
+                    self.logger.warning(f"Could not find company name for {job_url}")
+                
+                # Get location
+                try:
+                    location_element = driver.find_element(By.CLASS_NAME, "jobsearch-JobInfoHeader-subtitle")
+                    location = location_element.text.strip()
+                except NoSuchElementException:
+                    self.logger.warning(f"Could not find location for {job_url}")
+                
+                # Get description
+                description_selector = self.config.get('indeed_description', 'jobDescriptionText')
+                try:
+                    # First try to get by ID
+                    description_element = driver.find_element(By.ID, description_selector)
                     description = description_element.text.strip()
-                except (NoSuchElementException, Exception) as e:
-                    logger.warning(f"Could not extract job description using selector: {e}")
-                    description = "Could not extract job description"
-            
-            return description
-            
+                except NoSuchElementException:
+                    try:
+                        # Then try by class name
+                        description_element = driver.find_element(By.CLASS_NAME, description_selector)
+                        description = description_element.text.strip()
+                    except NoSuchElementException:
+                        self.logger.warning(f"Could not extract job description using selector")
+                
+                # Create job details dictionary
+                job_details = {
+                    'title': title,
+                    'company': company,
+                    'location': location,
+                    'description': description,
+                    'link': job_url,
+                    'source': 'Indeed'
+                }
+                
+                return job_details
+                
+            finally:
+                driver.quit()
+                
         except Exception as e:
-            logger.error(f"Error getting job details: {e}", exc_info=True)
-            return None
-        
-        finally:
-            if close_driver and driver:
-                driver.quit() 
+            self.logger.error(f"Error getting job details for {job_url}: {str(e)}")
+            return {
+                'title': 'Unknown',
+                'company': 'Unknown',
+                'location': 'Unknown',
+                'description': '',
+                'link': job_url,
+                'source': 'Indeed',
+                'error': str(e)
+            } 

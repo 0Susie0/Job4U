@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
         
     def _setup_ui(self):
         """Set up the UI components."""
-        self.setWindowTitle("Job Scraper and Applicator")
+        self.setWindowTitle("Job4U")
         self.setMinimumSize(900, 700)
         
         # Center the window
@@ -204,13 +204,13 @@ class AboutDialog(QDialog):
             parent: Parent widget
         """
         super().__init__(parent)
-        self.setWindowTitle("About Job Scraper")
+        self.setWindowTitle("About Job4U")
         self.setFixedSize(400, 300)
         
         layout = QVBoxLayout()
         
         # Application name
-        app_name = QLabel("Job Scraper and Applicator")
+        app_name = QLabel("Job4U")
         app_name.setAlignment(Qt.AlignCenter)
         font = QFont()
         font.setPointSize(16)
@@ -233,7 +233,7 @@ class AboutDialog(QDialog):
         layout.addWidget(description)
         
         # Copyright
-        copyright_label = QLabel("© 2025 Job Scraper Team")
+        copyright_label = QLabel("© 2025 Job4U Team")
         copyright_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(copyright_label)
         
@@ -244,14 +244,14 @@ def main():
     """Main entry point for the GUI application."""
     import sys
     from PyQt5.QtWidgets import QApplication
-    from job_scraper.app import JobScraperApp
+    from job_scraper.app import Job4UApp
     
     # Create the application
     qt_app = QApplication(sys.argv)
     qt_app.setStyle('Fusion')  # Use Fusion style for consistent look across platforms
     
     # Create the job scraper app instance
-    scraper_app = JobScraperApp()
+    scraper_app = Job4UApp()
     
     # Create main window
     main_window = MainWindow(scraper_app)

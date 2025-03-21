@@ -12,6 +12,8 @@ import datetime
 import webbrowser
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -22,9 +24,9 @@ from selenium.common.exceptions import (
 from contextlib import contextmanager
 from typing import Optional, Dict, Any
 
-from ..config.constants import Constants
-from ..utils.utils import Utils, validate_job_data, validate_resume_data, sanitize_file_path, ValidationError
-from .ai_letter_generator import AILetterGenerator
+from job_scraper.config.constants import Constants
+from job_scraper.utils.utils import Utils, validate_job_data, validate_resume_data, sanitize_file_path, ValidationError
+from job_scraper.services.ai_letter_generator import AILetterGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,17 @@ class WebDriverManager:
         
     def __enter__(self):
         try:
-            self.driver = webdriver.Chrome(options=self.options)
+            chrome_driver_path = self.config.get('chrome_driver_path') if hasattr(self, 'config') else None
+            
+            if chrome_driver_path:
+                # Use specified Chrome driver path
+                service = Service(executable_path=chrome_driver_path)
+                self.driver = webdriver.Chrome(service=service, options=self.options)
+            else:
+                # Use ChromeDriverManager to automatically download and manage the driver
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service, options=self.options)
+            
             return self.driver
         except WebDriverException as e:
             logging.error(f"Failed to initialize WebDriver: {str(e)}")
@@ -347,7 +359,17 @@ Sincerely,
         
         # Open job application page
         try:
-            driver = webdriver.Chrome(options=self.chrome_options)
+            chrome_driver_path = self.config.get_config('chrome_driver_path', None)
+            
+            if chrome_driver_path:
+                # Use specified Chrome driver path
+                service = Service(executable_path=chrome_driver_path)
+                driver = webdriver.Chrome(service=service, options=self.chrome_options)
+            else:
+                # Use ChromeDriverManager to automatically download and manage the driver
+                service = Service(ChromeDriverManager().install())
+                driver = webdriver.Chrome(service=service, options=self.chrome_options)
+                
             driver.get(job_data.get('link', ''))
             
             print(f"\nOpening application page for {job_data.get('title', 'Unknown')} at {job_data.get('company', 'Unknown')}")

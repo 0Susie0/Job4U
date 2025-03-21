@@ -7,4 +7,7 @@ import sys
 from job_scraper.main import main
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    # Add headless flag if not explicitly provided
+    if "--headless" not in sys.argv:
+        sys.argv.append("--headless")
+    sys.exit(main())    

@@ -1,5 +1,5 @@
 """
-Configuration management for the job scraper application.
+Configuration management for the Job4U application.
 """
 
 import os

@@ -1,51 +1,13 @@
 #!/usr/bin/env python3
 """
-Main entry point for the Job Scraper and Applicator application.
+Main entry point for the Job4U application.
 """
 
-import os
 import sys
-import logging
 import argparse
-from PyQt5.QtWidgets import QApplication
+import logging
 
-from job_scraper.app import JobScraperApp
-from job_scraper.gui.main_window import MainWindow
-
-
-def setup_logging():
-    """Set up logging for the application.
-    
-    Returns:
-        Logger instance
-    """
-    # Create logs directory if it doesn't exist
-    log_dir = os.path.join(os.path.expanduser("~"), ".job_scraper", "logs")
-    os.makedirs(log_dir, exist_ok=True)
-    
-    # Configure logger
-    logger = logging.getLogger("job_scraper")
-    logger.setLevel(logging.INFO)
-    
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    
-    # File handler
-    log_file = os.path.join(log_dir, "job_scraper.log")
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setLevel(logging.INFO)
-    
-    # Format
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    console_handler.setFormatter(formatter)
-    file_handler.setFormatter(formatter)
-    
-    # Add handlers
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
-    
-    return logger
+from .app import Job4UApp
 
 
 def parse_args():
@@ -54,7 +16,7 @@ def parse_args():
     Returns:
         Parsed arguments
     """
-    parser = argparse.ArgumentParser(description="Job Scraper and Applicator")
+    parser = argparse.ArgumentParser(description="Job4U")
     
     parser.add_argument(
         "--headless",
@@ -84,59 +46,47 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_gui():
-    """Run the GUI application."""
-    app = QApplication(sys.argv)
-    
-    # Initialize application
-    job_scraper_app = JobScraperApp()
-    
-    # Create main window
-    main_window = MainWindow(job_scraper_app)
-    main_window.show()
-    
-    # Exit application when window is closed
-    sys.exit(app.exec_())
-
-
-def run_headless(args):
+def run_headless(app, args):
     """Run the application in headless mode.
     
     Args:
+        app: Job4UApp instance
         args: Command line arguments
     """
     logger = logging.getLogger("job_scraper")
-    job_scraper_app = JobScraperApp()
     
     if args.check_expired:
         logger.info("Checking for expired jobs...")
-        count = job_scraper_app.check_expired_jobs()
+        count = app.check_expired_jobs()
         logger.info(f"Found {count} expired jobs")
         
     if args.delete_expired:
         logger.info(f"Deleting expired jobs older than {args.days} days...")
-        count = job_scraper_app.delete_expired_jobs(args.days)
+        count = app.delete_expired_jobs(args.days)
         logger.info(f"Deleted {count} expired jobs")
 
 
 def main():
     """Main entry point."""
-    # Set up logging
-    logger = setup_logging()
-    logger.info("Starting Job Scraper and Applicator")
-    
     # Parse command line arguments
     args = parse_args()
     
+    # Initialize application
+    app = Job4UApp()
+    
     try:
         if args.headless:
-            run_headless(args)
+            run_headless(app, args)
         else:
-            run_gui()
+            # Run GUI application
+            app.run()
+            
     except Exception as e:
-        logger.error(f"Error running application: {str(e)}", exc_info=True)
-        sys.exit(1)
+        app.logger.error(f"Error running application: {str(e)}", exc_info=True)
+        return 1
+        
+    return 0
 
 
 if __name__ == "__main__":
-    main() 
+    sys.exit(main()) 

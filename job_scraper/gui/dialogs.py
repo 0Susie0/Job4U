@@ -548,4 +548,57 @@ class JobDetailsDialog(QDialog):
         import webbrowser
         url = self.job_data.get('url')
         if url:
-            webbrowser.open(url) 
+            webbrowser.open(url)
+
+
+class AboutDialog(QDialog):
+    """About dialog."""
+    
+    def __init__(self, parent=None):
+        """Initialize the about dialog.
+        
+        Args:
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.setWindowTitle("About Job4U")
+        self.setFixedSize(400, 300)
+        
+        layout = QVBoxLayout()
+        
+        # Application name
+        app_name = QLabel("Job4U")
+        app_name.setAlignment(Qt.AlignCenter)
+        font = QFont()
+        font.setPointSize(16)
+        font.setBold(True)
+        app_name.setFont(font)
+        layout.addWidget(app_name)
+        
+        # Version
+        version = QLabel(f"Version: {Constants.VERSION}")
+        version.setAlignment(Qt.AlignCenter)
+        layout.addWidget(version)
+        
+        # Description
+        description = QLabel(
+            "Job4U is a tool to help you find and apply for jobs.\n"
+            "It automates the process of searching for jobs, parsing and matching job listings,\n"
+            "generating cover letters, and tracking applications."
+        )
+        description.setAlignment(Qt.AlignCenter)
+        description.setWordWrap(True)
+        layout.addWidget(description)
+        
+        # Website
+        website = QLabel('<a href="https://github.com/0Susie0/Job4U">GitHub Repository</a>')
+        website.setOpenExternalLinks(True)
+        website.setAlignment(Qt.AlignCenter)
+        layout.addWidget(website)
+        
+        # Close button
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(self.accept)
+        layout.addWidget(close_button, alignment=Qt.AlignCenter)
+        
+        self.setLayout(layout) 
