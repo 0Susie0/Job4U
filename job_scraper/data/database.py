@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
 
-from .constants import Constants
+from ..config.constants import Constants
 
 class ConnectionPool:
     """Connection pool for SQLite connections."""

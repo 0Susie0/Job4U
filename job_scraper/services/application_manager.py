@@ -22,8 +22,8 @@ from selenium.common.exceptions import (
 from contextlib import contextmanager
 from typing import Optional, Dict, Any
 
-from .constants import Constants
-from .utils import Utils, validate_job_data, validate_resume_data, sanitize_file_path, ValidationError
+from ..config.constants import Constants
+from ..utils.utils import Utils, validate_job_data, validate_resume_data, sanitize_file_path, ValidationError
 from .ai_letter_generator import AILetterGenerator
 
 logger = logging.getLogger(__name__)
